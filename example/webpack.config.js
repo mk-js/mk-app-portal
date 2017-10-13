@@ -34,7 +34,7 @@ module.exports = {
     devtool: 'source-map',
     entry: {
         bundle: ["./index.js", "./assets/styles/index.less"],
-        vendor: ["react", 'react-dom', 'mk-meta-engine']
+        vendor: ["react", 'react-dom', 'mk-meta-engine', 'mk-component', 'mk-utils', 'moment']
     },
 
     output: {
@@ -50,8 +50,7 @@ module.exports = {
     module: {
         rules: [{
             test: /\.css$/,
-            exclude: /node_modules/,
-
+            //exclude: /node_modules/,
             use: [{
                 loader: 'style-loader'
             }, {
@@ -73,9 +72,10 @@ module.exports = {
         }, {
             test: /\.(eot|woff|woff2|ttf|svg|png|jpe?g|gif|mp4|webm)(\?\S*)?$/,
             use: {
-                loader: 'file-loader',
+                loader: 'url-loader',
                 options: {
                     name: '[name].[hash:8].[ext]',
+                    limit: 8192
                 }
             }
         }],

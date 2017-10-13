@@ -2,6 +2,7 @@ import React from 'react'
 import { Menu } from 'mk-component'
 import { action as MetaAction, AppLoader } from 'mk-meta-engine'
 import { fromJS } from 'immutable'
+import { history } from 'mk-utils'
 import config from './config'
 
 class action {
@@ -17,7 +18,32 @@ class action {
         injections.reduce('init')
 
         this.load()
+
+        //history增加
+        history.listen('mk-app-portal', this.listen)
     }
+
+    //history增加
+    listen = (childApp, location, action) => {
+        const currentAppName = this.metaAction.gf('data.content.appName')
+        const targetAppName = childApp
+        if (!targetAppName) {
+            this.injections.reduce('closeAll')
+            return
+        }
+
+        if (targetAppName == currentAppName) {
+            return
+        }
+
+        this.setContent('', targetAppName, {})
+    }
+
+
+    componentWillUnmount = () => {
+        history.unlisten('mk-app-portal', this.listen)
+    }
+
 
     load = async () => {
         //网站中不存在login应用，那么就不做用户相关处理，正式环境应该不需要这段代码，仅为单应用运行使用
@@ -29,6 +55,7 @@ class action {
         }
 
         const response = await this.webapi.portal.init()
+
         if (response.user) {
             this.metaAction.context.set('currentUser', response.user)
             this.metaAction.sf('data.other.currentUser', fromJS(response.user))
@@ -56,19 +83,35 @@ class action {
 
     getMenuChildren = () => {
         const menu = this.metaAction.gf('data.menu').toJS()
+
         const loop = (children) => {
             const ret = []
             children.forEach(child => {
                 if (!child.children) {
-                    ret.push(<Menu.Item key={child.key}>{child.name}</Menu.Item>)
+                    ret.push({
+                        name: child.key,
+                        key: child.key,
+                        component: 'Menu.Item',
+                        children: child.name
+                    })
                 }
                 else {
-                    ret.push(<Menu.SubMenu key={child.key} title={child.name}>{loop(child.children)}</Menu.SubMenu>)
+                    ret.push({
+                        name: child.key,
+                        key: child.key,
+                        title: child.name,
+                        component: 'Menu.SubMenu',
+                        children: loop(child.children)
+                    })
                 }
             })
             return ret
         }
-        return loop(menu)
+        return {
+            _isMeta: true,
+            value: loop(menu)
+        }
+
     }
 
     topMenuClick = async (e) => {
@@ -81,15 +124,15 @@ class action {
                 }
                 break;
             case 'github':
-                window.open('https://www.github.com/ziaochina/mk-app-portal')
+                window.open('https://www.github.com/ziaochina/mk-demo')
                 break;
             case 'gitter':
                 window.open('https://gitter.im/mk-js/mk-js?utm_source=share-link&utm_medium=link&utm_campaign=share-link')
                 break;
             case 'mySetting':
-                if(!this.config.apps['mk-app-my-setting'])
+                if (!this.config.apps['mk-app-my-setting'])
                     throw '不存在mk-app-my-setting应用，该功能不能使用'
-                
+
                 this.setContent('个人设置', 'mk-app-my-setting')
                 break;
             case 'toggleTabs':
@@ -120,25 +163,34 @@ class action {
 
     getMenuSelectKeys = () => {
         const content = this.metaAction.gf('data.content')
-        if(!content) return 
-        const menuKeyNameMap =  this.metaAction.gf('data.menuKeyNameMap')
+        if (!content) return
+        const menuKeyNameMap = this.metaAction.gf('data.menuKeyNameMap')
         return [menuKeyNameMap.get(content.get('name'))]
-        
+
     }
     tabChange = (key) => {
         const openTabs = this.metaAction.gf('data.openTabs')
-        const curr = openTabs.find(o=>o.get('name') == key)
+        const curr = openTabs.find(o => o.get('name') == key)
         this.setContent(curr.get('name'), curr.get('appName'), curr.get('appProps'))
     }
 
     tabEdit = (key, action) => {
-        if( action == 'remove'){
+        if (action == 'remove') {
             this.injections.reduce('closeContent', key)
         }
     }
 
     setContent = (name, appName, appProps = {}) => {
         this.injections.reduce('setContent', name, appName, appProps)
+    }
+
+    foldMenu = () => {
+        this.metaAction.sf('data.isShowMenu', !this.metaAction.gf('data.isShowMenu'))
+        setTimeout(function () {
+            var event = document.createEvent('HTMLEvents')
+            event.initEvent("resize", true, true)
+            window.dispatchEvent(event)
+        }, 0)
     }
 }
 
